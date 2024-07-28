@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
 public class Player : MonoBehaviour
@@ -14,14 +15,24 @@ public class Player : MonoBehaviour
     [SerializeField] private float doubleJumpForce;
     private bool canDoubleJump;
 
+    [Header("wall interactions")]
+    [SerializeField] private float walJumpDuration = .6f;
+    [SerializeField] private Vector2 wallJumpForce;
+    private bool isWallJumping;
+
+
     [Header("Collison info")]
     [SerializeField] private float groundCheckDistance;
+    [SerializeField] private float wallCheckDistance;
     [SerializeField] private LayerMask whatIsGround;
     private bool isGround;
     private bool isAirborne;
+    private bool isWallDetected;
 
 
-    private float xInpt;
+    private float xInput;
+    private float yInput;
+
     private bool faceRight = true;
     private int facingDir = 1;
     
@@ -30,17 +41,33 @@ public class Player : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponentInChildren < Animator > ();
+
     }
+
 
     private void Update()
     {
         UpdateAirbornStatus();
-        handleCollision();
+       
         handleInput();
+        HandledWallSlide();
         HandleMovement();
         HandleFlip();
+        handleCollision();
         HandleAnimations();
 
+    }
+
+    private void HandledWallSlide()
+    {
+        bool canWalSlide = isWallDetected && rb.velocity.y < 0;
+        float yModifer = yInput < 0 ? 1 : .05f;
+
+        if (canWalSlide == false)
+            return;
+
+        rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * yModifer);//0.5倍
+        
     }
 
     private void UpdateAirbornStatus()
@@ -64,7 +91,8 @@ public class Player : MonoBehaviour
 
     private void handleInput()
     {
-        xInpt = Input.GetAxisRaw("Horizontal");
+        xInput = Input.GetAxisRaw("Horizontal");
+        yInput = Input.GetAxisRaw("Vertical");
         if (Input.GetKeyDown(KeyCode.Space))
             JumpButton();//简单表达式，if只有一条语句紧跟在下一行，不需要大括号
         
@@ -74,25 +102,48 @@ public class Player : MonoBehaviour
     {
         if (isGround)
         {
-            jump(); 
+            jump();
+        }
+        else if (isWallDetected && !isGround)
+        {
+            WallJump();
         }
         else if (canDoubleJump)
         {
             DoubleJump();
         }
+        
     }
 
     //简单表达式，函数只有一条语句用 => 可以不需要大括号
     private void jump() => rb.velocity = new Vector2(rb.velocity.x, jumpForce);
     private void DoubleJump()
     {
+        isWallJumping = false;
         canDoubleJump = false;
         rb.velocity = new Vector2(rb.velocity.x, doubleJumpForce);
+    }
+
+    private void WallJump()
+    {
+        canDoubleJump = true;
+        rb.velocity = new Vector2(wallJumpForce.x * -facingDir, wallJumpForce.y);
+        Flip();
+        StopAllCoroutines();
+        StartCoroutine(WallJumpRoutine());
+    }
+
+    private IEnumerator WallJumpRoutine()
+    {
+        isWallJumping = true;
+        yield return new WaitForSeconds(walJumpDuration);
+        isWallJumping = false;
     }
 
     private void handleCollision()
     {
         isGround = Physics2D.Raycast(transform.position, Vector2.down, groundCheckDistance, whatIsGround);
+        isWallDetected = Physics2D.Raycast(transform.position, Vector2.right * facingDir, wallCheckDistance, whatIsGround);
     }
 
     private void HandleAnimations()
@@ -100,16 +151,22 @@ public class Player : MonoBehaviour
         anim.SetFloat("xVelocity", rb.velocity.x);
         anim.SetFloat("yVelocity", rb.velocity.y);
         anim.SetBool("isGrounded", isGround);
+        anim.SetBool("isWallDeteced", isWallDetected);
     }
 
     private void HandleMovement()
     {
-        rb.velocity = new Vector2(xInpt * moveSpeed, rb.velocity.y);
+        if (isWallDetected)
+            return;
+        if (isWallJumping)
+            return;
+
+        rb.velocity = new Vector2(xInput * moveSpeed, rb.velocity.y);
     }
 
     private void HandleFlip()
     {
-        if (rb.velocity.x < 0 && faceRight || rb.velocity.x > 0 && !faceRight)
+        if (xInput < 0 && faceRight || xInput > 0 && !faceRight)
             Flip();
     }
 
@@ -123,5 +180,7 @@ public class Player : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.DrawLine(transform.position, new Vector2(transform.position.x, transform.position.y - groundCheckDistance));
+        Gizmos.DrawLine(transform.position, new Vector2(transform.position.x + (wallCheckDistance * facingDir), transform.position.y));
+
     }
 }
