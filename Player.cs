@@ -1,7 +1,4 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
 public class Player : MonoBehaviour
@@ -10,10 +7,16 @@ public class Player : MonoBehaviour
     private Animator anim;
 
     [Header("Movement detals")]
-    [SerializeField]private float moveSpeed;
+    [SerializeField] private float moveSpeed;
     [SerializeField] private float jumpForce;
     [SerializeField] private float doubleJumpForce;
     private bool canDoubleJump;
+
+    [Header("buffer &Coyote Jump")]
+    [SerializeField] private float bufferJumpWindow = .25f;
+    private float bufferJumpActivated = -1;
+    [SerializeField] private float coyoteJumpWindow = .5f;
+    private float coyoteJumpActivated = -1;
 
     [Header("wall interactions")]
     [SerializeField] private float walJumpDuration = .6f;
@@ -24,7 +27,6 @@ public class Player : MonoBehaviour
     [SerializeField] private float knockbackDuration = 1;
     [SerializeField] private Vector2 knockbackPower;
     private bool isKnocked;
-    private bool canBeKnocked;
 
     [Header("Collison info")]
     [SerializeField] private float groundCheckDistance;
@@ -34,31 +36,26 @@ public class Player : MonoBehaviour
     private bool isAirborne;
     private bool isWallDetected;
 
-
     private float xInput;
     private float yInput;
 
     private bool faceRight = true;
     private int facingDir = 1;
-    
+
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-        anim = GetComponentInChildren < Animator > ();
-
+        anim = GetComponentInChildren<Animator>();
     }
-
 
     private void Update()
     {
-        
-
         UpdateAirbornStatus();
 
         if (isKnocked)
             return;
-       
+
         handleInput();
         HandledWallSlide();
         HandleMovement();
@@ -77,18 +74,15 @@ public class Player : MonoBehaviour
         anim.SetTrigger("Knockback");
         rb.velocity = new Vector2(knockbackPower.x * -facingDir, knockbackPower.y);
     }
-
-    private void HandledWallSlide()
+    private IEnumerator KockbackRoutine()
     {
-        bool canWalSlide = isWallDetected && rb.velocity.y < 0;
-        float yModifer = yInput < 0 ? 1 : .05f;
+        isKnocked = true;
 
-        if (canWalSlide == false)
-            return;
+        yield return new WaitForSeconds(knockbackDuration);
 
-        rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * yModifer);//0.5倍
-        
+        isKnocked = false;
     }
+
 
     private void UpdateAirbornStatus()
     {
@@ -101,12 +95,16 @@ public class Player : MonoBehaviour
     private void BecomeAirborn()
     {
         isAirborne = true;
+        if (rb.velocity.y < 0)
+            ActivateCoyoteJump();
     }
 
     private void HandleLanding()
     {
         isAirborne = false;
         canDoubleJump = true;
+
+        AttemptBufferJump();
     }
 
     private void handleInput()
@@ -114,13 +112,34 @@ public class Player : MonoBehaviour
         xInput = Input.GetAxisRaw("Horizontal");
         yInput = Input.GetAxisRaw("Vertical");
         if (Input.GetKeyDown(KeyCode.Space))
-            JumpButton();//简单表达式，if只有一条语句紧跟在下一行，不需要大括号
-        
+        {
+            JumpButton();
+            RequestBufferJump();
+        }
+
     }
+    #region Buffer Coyote Jump
+    private void RequestBufferJump()
+    {
+        if (isAirborne)
+            bufferJumpActivated = Time.time;
+    }
+    private void AttemptBufferJump()
+    {
+        if (Time.time < bufferJumpActivated + bufferJumpWindow)
+        {
+            bufferJumpActivated = Time.time - 1;
+            jump();
+        }
+    }
+    private void ActivateCoyoteJump() => coyoteJumpActivated = Time.time;
+    private void CancelCoyoteJump() => coyoteJumpActivated = Time.time - 1;
+    #endregion
 
     private void JumpButton()
     {
-        if (isGround)
+        bool coyoteJumpAvalible = Time.time < coyoteJumpActivated + coyoteJumpWindow;
+        if (isGround || coyoteJumpAvalible)
         {
             jump();
         }
@@ -132,7 +151,8 @@ public class Player : MonoBehaviour
         {
             DoubleJump();
         }
-        
+        CancelCoyoteJump();
+
     }
 
     //简单表达式，函数只有一条语句用 => 可以不需要大括号
@@ -159,17 +179,19 @@ public class Player : MonoBehaviour
         yield return new WaitForSeconds(walJumpDuration);
         isWallJumping = false;
     }
-
-    private IEnumerator KockbackRoutine() 
+    private void HandledWallSlide()
     {
-        canBeKnocked = false;
-        isKnocked = true;
+        bool canWalSlide = isWallDetected && rb.velocity.y < 0;
+        float yModifer = yInput < 0 ? 1 : .05f;
 
-        yield return new WaitForSeconds(knockbackDuration);
+        if (canWalSlide == false)
+            return;
 
-        canBeKnocked = true;
-        isKnocked = false;
+        rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * yModifer);//0.5倍
+
     }
+
+
 
     private void handleCollision()
     {
