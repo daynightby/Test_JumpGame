@@ -1,15 +1,20 @@
 using System.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
     private Rigidbody2D rb;
     private Animator anim;
+    private CapsuleCollider2D cd;
+
+    private bool canBeControlled = false;
 
     [Header("Movement detals")]
     [SerializeField] private float moveSpeed;
     [SerializeField] private float jumpForce;
     [SerializeField] private float doubleJumpForce;
+    private float defaultGravityScale;
     private bool canDoubleJump;
 
     [Header("buffer &Coyote Jump")]
@@ -42,17 +47,29 @@ public class Player : MonoBehaviour
     private bool faceRight = true;
     private int facingDir = 1;
 
+    [Header("VFX")]
+    [SerializeField] private GameObject deathVfx;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        cd = GetComponent<CapsuleCollider2D>();
         anim = GetComponentInChildren<Animator>();
 
+    }
+
+    private void Start()
+    {
+        defaultGravityScale = rb.gravityScale;
+        RespawnFinished(false);
     }
 
     private void Update()
     {
         UpdateAirbornStatus();
+
+        if (canBeControlled == false)
+           return;
 
         if (isKnocked)
             return;
@@ -64,6 +81,23 @@ public class Player : MonoBehaviour
         handleCollision();
         HandleAnimations();
 
+    }
+
+    public void RespawnFinished(bool finishied)
+    {
+        
+        if (finishied)
+        {
+            rb.gravityScale = defaultGravityScale;
+            canBeControlled = true;
+            cd.enabled = true;
+        }
+        else
+        {
+            rb.gravityScale = 0;
+            canBeControlled = false;
+            cd.enabled = false;
+        }
     }
 
     public void Knockback()
@@ -82,6 +116,12 @@ public class Player : MonoBehaviour
         yield return new WaitForSeconds(knockbackDuration);
 
         isKnocked = false;
+    }
+
+    public void Die()
+    {
+        GameObject newDeathVfx = Instantiate(deathVfx, transform.position, Quaternion.identity);
+        Destroy(gameObject);
     }
 
 
