@@ -100,13 +100,18 @@ public class Player : MonoBehaviour
         }
     }
 
-    public void Knockback()
+    public void Knockback(float sourceDamageXposition)
     {
+        float knockbackDir = 1;
+
+        if (transform.position.x < sourceDamageXposition)
+            knockbackDir = -1;
+
         if (isKnocked)
             return;
 
         StartCoroutine(KockbackRoutine());
-        rb.velocity = new Vector2(knockbackPower.x * -facingDir, knockbackPower.y);
+        rb.velocity = new Vector2(knockbackPower.x * knockbackDir, knockbackPower.y);
     }
     private IEnumerator KockbackRoutine()
     {
