@@ -10,6 +10,11 @@ public class CheckPoint : MonoBehaviour
 
     [SerializeField] private bool canBeReactivated;
 
+    private void Start()
+    {
+        canBeReactivated = GameManager.instace.canReactivate;
+    }
+
     private void OnTriggerEnter2D(Collider2D collision)
     {
         if (active && canBeReactivated == false)
