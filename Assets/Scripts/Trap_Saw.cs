@@ -10,8 +10,10 @@ public class Trap_Saw : MonoBehaviour
     [SerializeField] private float moveSpeed = 3;
     [SerializeField] private float cooldown = 1;
     [SerializeField] private Transform[] wayPoint;
+    private Vector3[] waypointPosition;
 
     public int wayPointIndex = 1;
+    public int moveDirection = 1;
     private bool canMove = true;
 
     private void Awake()
@@ -22,7 +24,18 @@ public class Trap_Saw : MonoBehaviour
 
     private void Start()
     {
+        UpdateWaypointsInfo();
         transform.position = wayPoint[0].position;
+    }
+
+    private void UpdateWaypointsInfo()
+    {
+        waypointPosition = new Vector3[wayPoint.Length];
+
+        for (int i = 0; i < wayPoint.Length; i++)
+        {
+            waypointPosition[i] = wayPoint[i].position;
+        }
     }
 
     private void Update()
@@ -32,17 +45,16 @@ public class Trap_Saw : MonoBehaviour
         if (canMove == false)
             return;
 
-        transform.position = Vector2.MoveTowards(transform.position, wayPoint[wayPointIndex].position, moveSpeed * Time.deltaTime);
+        transform.position = Vector2.MoveTowards(transform.position, waypointPosition[wayPointIndex], moveSpeed * Time.deltaTime);
 
-        if (Vector2.Distance(transform.position, wayPoint[wayPointIndex].position) < .1f)
+        if (Vector2.Distance(transform.position, waypointPosition[wayPointIndex]) < .1f)
         {
-            wayPointIndex++;
-
-            if (wayPointIndex >= wayPoint.Length)
+            if (wayPointIndex == waypointPosition.Length - 1 || wayPointIndex == 0)
             { 
-                wayPointIndex = 0;
+                moveDirection = moveDirection * -1;
                 StartCoroutine(StopMovement(cooldown));
             }
+            wayPointIndex = wayPointIndex + moveDirection;
         }
     }
 
