@@ -20,6 +20,9 @@ public class GameManager : MonoBehaviour
     [Header("Check Point")]
     public bool canReactivate;
 
+    [Header("Traps")]
+    public GameObject arrowPrefab;
+
     private void Awake()
     {
         if (instace == null)
@@ -52,4 +55,14 @@ public class GameManager : MonoBehaviour
 
     public void AddFruit() => fruitsCollected ++;
     public bool FruitsHaveRandomLook() => fruitsHaveRandomLook;
+    public void CreateObject(GameObject prefab, Transform target, float delay = 0)
+    {
+        StartCoroutine(CreateObjectCorutine(prefab, target, delay));
+    }
+    public IEnumerator CreateObjectCorutine(GameObject prefab,Transform target, float dely)
+    {
+        Vector3 newPosition = target.position;
+        yield return new WaitForSeconds(dely);
+        GameObject newObject = Instantiate(prefab, newPosition, Quaternion.identity);
+    }
 }
